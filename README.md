@@ -20,11 +20,104 @@ Production-ready Python pipeline for automatically translating videos with full 
 - CUDA-capable GPU (16+ GB VRAM recommended)
 - FFmpeg installed on your system
 
+### Windows Setup (GTX 1650 / GPU)
+
+**Recommended for GTX 1650 (4GB VRAM)**:
+
+1. **Install Python 3.10+**
+   - Download from [python.org](https://www.python.org/downloads/)
+   - Make sure to check "Add Python to PATH" during installation
+
+2. **Install CUDA Toolkit** (for GPU support)
+   - Download CUDA 11.8 or 12.1 from [NVIDIA](https://developer.nvidia.com/cuda-downloads)
+   - Verify installation: `nvcc --version`
+
+3. **Install cuDNN** (required for PyTorch)
+   - Download from [NVIDIA cuDNN](https://developer.nvidia.com/cudnn)
+   - Extract and copy files to CUDA installation directory
+
+4. **Install FFmpeg**
+   - Download from [ffmpeg.org](https://ffmpeg.org/download.html#build-windows)
+   - Add to system PATH
+   - Verify: `ffmpeg -version`
+
+5. **Clone and setup project**
+```bash
+git clone https://github.com/Ibrakam/translate-v.git
+cd translate-v
+
+# Create virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# Install dependencies
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
+```
+
+6. **Setup Video Retalking for lip sync**
+```bash
+# Clone Video Retalking
+git clone https://github.com/OpenTalker/video-retalking models/video-retalking
+cd models/video-retalking
+
+# Install additional dependencies
+pip install -r requirements.txt
+
+# Download checkpoints (automatic download script)
+cd checkpoints
+python download_models.py
+cd ../../..
+```
+
+7. **Configure for GTX 1650** (4GB VRAM)
+
+   Edit `.env` file:
+   ```bash
+   # Use CUDA for GPU acceleration
+   WHISPER_DEVICE=cuda
+   WHISPER_MODEL=base  # Use 'base' model for 4GB VRAM (or 'medium' if available)
+
+   # Use local GPU for lip sync
+   LIPSYNC_METHOD=videoretalking
+
+   # Free Microsoft TTS (no API key needed)
+   TTS_PROVIDER=edge
+
+   # Enable all features
+   GENERATE_SUBTITLES=true
+   GENERATE_DUBBING=true
+   APPLY_LIPSYNC=true
+   ```
+
+8. **Test GPU setup**
+```bash
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A"}')"
+```
+
+9. **Run test video**
+```bash
+# Place test video in app/storage/input/
+python test_single.py
+```
+
+**GTX 1650 Performance Expectations**:
+- **Transcription** (Whisper base): ~10-15 min per hour of video
+- **TTS** (Edge TTS): ~3-5 min per hour
+- **Lip Sync** (Video Retalking): ~40-60 min per hour
+- **Total**: ~1-1.5 hours per hour of video
+
+**Memory Optimization for 4GB VRAM**:
+- Use `WHISPER_MODEL=base` or `tiny` instead of `large-v3`
+- Process videos one at a time (`MAX_WORKERS=1`)
+- Close other GPU-intensive applications
+- If OOM errors occur, try `WHISPER_MODEL=tiny`
+
 ### Installation
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/translate-v.git
+git clone https://github.com/Ibrakam/translate-v.git
 cd translate-v
 ```
 
@@ -428,8 +521,8 @@ This project is licensed under the MIT License - see LICENSE file for details.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/translate-v/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/translate-v/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Ibrakam/translate-v/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Ibrakam/translate-v/discussions)
 
 ---
 
