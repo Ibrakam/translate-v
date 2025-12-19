@@ -1,5 +1,5 @@
 """
-Simple test script to process a single video with lip sync.
+Simple test script to process a single video with local lip sync.
 """
 from pathlib import Path
 from app.pipeline.process_video import VideoProcessor
@@ -9,12 +9,12 @@ from app.pipeline.lipsync_videoretalking import VideoRetalkingLipSync
 video_path = Path("app/storage/input/IMG_1752_short.mp4")
 
 # Process with Spanish only for faster testing
-print("Starting video processing with LOCAL Video Retalking lip sync...")
+print("Starting video processing with LOCAL lip sync...")
 print(f"Video: {video_path}")
 print("=" * 70)
 
-# Initialize processor with LOCAL lip sync (Video Retalking)
-print("\n🖥️  Using Local Video Retalking for lip sync")
+# Initialize processor with local Video Retalking lip sync
+print("\n🖥️  Using LOCAL Video Retalking for lip sync")
 lipsync = VideoRetalkingLipSync()
 processor = VideoProcessor(lipsync=lipsync)
 

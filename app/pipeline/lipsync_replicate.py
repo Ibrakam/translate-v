@@ -4,7 +4,6 @@ Runs video-retalking on cloud GPUs instead of local hardware.
 """
 
 import os
-import time
 from pathlib import Path
 from typing import Optional
 import replicate
@@ -42,9 +41,9 @@ class ReplicateLipSync:
                 "Get your API key from https://replicate.com/account/api-tokens"
             )
 
-        # Video Retalking model on Replicate (updated January 2024)
-        # Cost: $0.00115 per second on A100 GPU
-        self.model_version = "chenxwh/video-retalking:db5a650c807b007dc5f9e5abe27c53e1b62880d1f94d218d27ce7fa802711d67"
+        # Kling lip sync model on Replicate
+        # https://replicate.com/kwaivgi/kling-lip-sync
+        self.model_name = "chenxwh/video-retalking:db5a650c807b007dc5f9e5abe27c53e1b62880d1f94d218d27ce7fa802711d67"
 
         logger.info("Replicate cloud lip sync initialized")
 
@@ -104,35 +103,98 @@ class ReplicateLipSync:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Upload files and run prediction
-            with open(video_path, "rb") as video_file, open(audio_path, "rb") as audio_file:
-                logger.info("Uploading files to Replicate...")
+            logger.info("Uploading files to Replicate...")
 
-                # Run the model
-                output = replicate.run(
-                    self.model_version,
-                    input={
-                        "face": video_file,
-                        "input_audio": audio_file
-                    }
-                )
+            # Upload files first to get URLs (model expects URL strings, not file objects)
+            with open(video_path, "rb") as video_file:
+                video_file_obj = replicate.files.create(file=video_file)
+                # urls is a dict-like object, access with ['get']
+                if hasattr(video_file_obj, 'urls'):
+                    video_url = video_file_obj.urls['get']
+                else:
+                    video_url = str(video_file_obj)
+                logger.info(f"Video uploaded: {video_url}")
+            
+            with open(audio_path, "rb") as audio_file:
+                audio_file_obj = replicate.files.create(file=audio_file)
+                if hasattr(audio_file_obj, 'urls'):
+                    audio_url = audio_file_obj.urls['get']
+                else:
+                    audio_url = str(audio_file_obj)
+                logger.info(f"Audio uploaded: {audio_url}")
 
-                logger.info("Processing on cloud GPU...")
+            logger.info("Running lip sync on Replicate...")
+            output = replicate.run(
+                self.model_name,
+                input={
+                    "face": video_url,
+                    "input_audio": audio_url
+                }
+            )
 
-                # Download result
-                if isinstance(output, str):
-                    # Output is a URL to the result video
-                    import requests
-                    response = requests.get(output)
+            logger.info(f"Replicate returned output type: {type(output)}")
+            logger.info(f"Replicate output value: {output}")
+
+            # Handle different output formats from Replicate
+            # New replicate library (1.0+) returns FileOutput objects
+            import requests
+            
+            # Try to get the actual output value
+            result = output
+            
+            # If output is a FileOutput object with read() method (replicate 1.0+)
+            if hasattr(output, 'read'):
+                logger.info("Output is FileOutput, reading directly...")
+                with open(output_path, 'wb') as f:
+                    f.write(output.read())
+                logger.info(f"✓ Saved output directly to {output_path.name}")
+            
+            # If output is a string URL
+            elif isinstance(output, str):
+                logger.info(f"Output is string URL: {output}")
+                response = requests.get(output)
+                response.raise_for_status()
+                with open(output_path, 'wb') as f:
+                    f.write(response.content)
+            
+            # If output is a list or iterator, get first item
+            elif hasattr(output, '__iter__') and not isinstance(output, (str, bytes, dict)):
+                items = list(output)
+                logger.info(f"Output is iterable with {len(items)} items")
+                if not items:
+                    raise LipSyncError("Replicate returned empty output")
+                
+                first_item = items[0]
+                logger.info(f"First item type: {type(first_item)}, value: {first_item}")
+                
+                # First item could be FileOutput or URL string
+                if hasattr(first_item, 'read'):
+                    with open(output_path, 'wb') as f:
+                        f.write(first_item.read())
+                elif isinstance(first_item, str):
+                    response = requests.get(first_item)
                     response.raise_for_status()
-
                     with open(output_path, 'wb') as f:
                         f.write(response.content)
-
-                    logger.info(f"✓ Lip sync complete: {output_path.name}")
-
                 else:
-                    raise LipSyncError(f"Unexpected output format from Replicate: {type(output)}")
+                    raise LipSyncError(f"Unknown item type in output: {type(first_item)}")
+            
+            # If output is a dict, look for URL field
+            elif isinstance(output, dict):
+                logger.info(f"Output is dict with keys: {output.keys()}")
+                url = output.get('output') or output.get('url') or output.get('video')
+                if url:
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    with open(output_path, 'wb') as f:
+                        f.write(response.content)
+                else:
+                    raise LipSyncError(f"Could not find URL in dict output: {output}")
+            
+            else:
+                raise LipSyncError(f"Unexpected output format: {type(output)}, value: {output}")
+
+            logger.info(f"✓ Lip sync complete: {output_path.name}")
 
             if not output_path.exists():
                 raise LipSyncError(
@@ -198,8 +260,8 @@ class ReplicateWav2Lip:
         """Initialize Replicate Wav2Lip."""
         self.api_key = api_key or os.getenv("REPLICATE_API_TOKEN")
 
-        # Wav2Lip model on Replicate
-        self.model_version = "devxpy/wav2lip:a6f2d70db374bfa8e81b9d27dc26eb748c6b5c0fe44a5acb46bcaa50ff95a851"
+        # Kling lip sync model on Replicate
+        self.model_name = "kwaivgi/kling-lip-sync"
 
         logger.info("Replicate Wav2Lip initialized")
 
@@ -225,29 +287,49 @@ class ReplicateWav2Lip:
         logger.info(f"☁️  Processing with Wav2Lip on cloud: {video_path.name}")
 
         try:
-            with open(video_path, "rb") as video_file, open(audio_path, "rb") as audio_file:
-                output = replicate.run(
-                    self.model_version,
-                    input={
-                        "video": video_file,
-                        "audio": audio_file
-                    }
-                )
-
-                # Download result
-                if isinstance(output, str):
-                    import requests
-                    response = requests.get(output)
-                    response.raise_for_status()
-
-                    with open(output_path, 'wb') as f:
-                        f.write(response.content)
-
-                    logger.info(f"✓ Wav2Lip complete: {output_path.name}")
-                    return output_path
-
+            # Upload files first to get URLs
+            with open(video_path, "rb") as video_file:
+                video_file_obj = replicate.files.create(file=video_file)
+                logger.info(f"Video file obj: {video_file_obj}")
+                # urls is a dict-like object, access with ['get']
+                if hasattr(video_file_obj, 'urls'):
+                    video_url = video_file_obj.urls['get']
                 else:
-                    raise LipSyncError(f"Unexpected output from Wav2Lip: {type(output)}")
+                    video_url = str(video_file_obj)
+                logger.info(f"Video URL: {video_url}")
+            
+            with open(audio_path, "rb") as audio_file:
+                audio_file_obj = replicate.files.create(file=audio_file)
+                if hasattr(audio_file_obj, 'urls'):
+                    audio_url = audio_file_obj.urls['get']
+                else:
+                    audio_url = str(audio_file_obj)
+                logger.info(f"Audio URL: {audio_url}")
+
+            output = replicate.run(
+                self.model_name,
+                input={
+                    "video_url": video_url,
+                    "audio_file": audio_url
+                }
+            )
+
+            # Handle output (FileOutput or URL string)
+            import requests
+            
+            if hasattr(output, 'read'):
+                with open(output_path, 'wb') as f:
+                    f.write(output.read())
+            elif isinstance(output, str):
+                response = requests.get(output)
+                response.raise_for_status()
+                with open(output_path, 'wb') as f:
+                    f.write(response.content)
+            else:
+                raise LipSyncError(f"Unexpected output from Wav2Lip: {type(output)}")
+
+            logger.info(f"✓ Wav2Lip complete: {output_path.name}")
+            return output_path
 
         except Exception as e:
             logger.error(f"Wav2Lip cloud error: {e}")
