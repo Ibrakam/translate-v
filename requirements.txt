@@ -1,0 +1,108 @@
+# Core dependencies for video translation and dubbing pipeline with lip sync
+
+# ============================================================================
+# AUDIO TRANSCRIPTION
+# ============================================================================
+
+# OpenAI Whisper for audio transcription
+openai-whisper==20231117
+
+# PyTorch for Whisper (GPU support recommended)
+# For CUDA 11.8+
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# For CPU-only installation, use:
+# torch>=2.0.0+cpu
+# torchaudio>=2.0.0+cpu
+# --extra-index-url https://download.pytorch.org/whl/cpu
+
+# ============================================================================
+# TRANSLATION
+# ============================================================================
+
+# DeepL API for subtitle translation
+deepl==1.18.0
+
+# ============================================================================
+# TEXT-TO-SPEECH
+# ============================================================================
+
+# ElevenLabs API client for voice synthesis
+elevenlabs==0.2.27
+
+# HTTP requests for API calls
+requests==2.31.0
+
+# ============================================================================
+# ENVIRONMENT & UTILITIES
+# ============================================================================
+
+# Environment variable management
+python-dotenv==1.0.0
+
+# ============================================================================
+# LIP SYNC DEPENDENCIES (Manual Installation Required)
+# ============================================================================
+
+# Video Retalking - Install separately from:
+# https://github.com/OpenTalker/video-retalking
+#
+# Installation steps:
+# 1. git clone https://github.com/OpenTalker/video-retalking models/video-retalking
+# 2. cd models/video-retalking
+# 3. pip install -r requirements.txt
+# 4. Download checkpoints (see repo README)
+
+# Wav2Lip (Alternative to Video Retalking) - Install separately from:
+# https://github.com/Rudrabha/Wav2Lip
+#
+# Installation steps:
+# 1. git clone https://github.com/Rudrabha/Wav2Lip models/Wav2Lip
+# 2. cd models/Wav2Lip
+# 3. pip install -r requirements.txt
+# 4. Download pretrained models
+
+# ============================================================================
+# SYSTEM REQUIREMENTS
+# ============================================================================
+
+# FFmpeg must be installed separately on your system:
+# - macOS: brew install ffmpeg
+# - Ubuntu: sudo apt-get install ffmpeg
+# - Windows: Download from https://ffmpeg.org/download.html
+
+# ============================================================================
+# NOTES
+# ============================================================================
+
+# PYTHON VERSION:
+# - Required: Python 3.10 or 3.11
+# - Python 3.13: Not compatible
+# - Python 3.9 or older: Not supported
+
+# GPU REQUIREMENTS:
+# - Whisper large-v3: ~10 GB VRAM
+# - Video Retalking: ~6-8 GB VRAM
+# - Total recommended: 16+ GB VRAM for optimal performance
+# - Can run on CPU but will be significantly slower
+
+# ESTIMATED PROCESSING TIME (1-hour video):
+# With GPU (RTX 3090 or better):
+# - Transcription: 5-10 minutes
+# - Translation: 1-2 minutes
+# - TTS: 2-5 minutes
+# - Lip Sync: 20-40 minutes
+# - Total: ~30-60 minutes
+#
+# With CPU:
+# - Transcription: 60-120 minutes
+# - Translation: 1-2 minutes
+# - TTS: 5-10 minutes
+# - Lip Sync: Not recommended (hours)
+# - Total: Several hours
+
+# API COSTS (approximate for 1-hour video):
+# - ElevenLabs: $3-10 (depending on plan and voice quality)
+# - DeepL: Free (within 500K char/month limit)
+# - Total per video: $3-10
